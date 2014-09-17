@@ -87,7 +87,8 @@ internal class HTTPWrapper
         }
         catch
         {
-            if (strmLockFirefox != null) strmLockFirefox.Close();
+            if (strmLockFirefox != null)
+                strmLockFirefox.Close();
             return false;
         }
 
@@ -101,7 +102,8 @@ internal class HTTPWrapper
     /// </summary>
     public void UnlockFirefoxCookies()
     {
-        if (strmLockFirefox != null) strmLockFirefox.Close();
+        if (strmLockFirefox != null)
+            strmLockFirefox.Close();
         strmLockFirefox = null;
         blnLockFirefox = false;
         GC.Collect();
@@ -120,11 +122,13 @@ internal class HTTPWrapper
         bool blnWasLocked = blnLockFirefox;
         if (!blnLockFirefox)
         {
-            if (!LockFirefoxCookies(strPath)) return false;
+            if (!LockFirefoxCookies(strPath))
+                return false;
         }
         UnlockFirefoxCookies();
 
-        if (blnClearCookies) ClearCookies();
+        if (blnClearCookies)
+            ClearCookies();
 
         DataTable data = new DataTable();
         string query = "SELECT * FROM moz_cookies";
@@ -152,15 +156,18 @@ internal class HTTPWrapper
                 adapter.Fill(data);
             }
             connection.Close();
+            
             // Must clean up
             GC.Collect();
         }
         catch
         {
             connection.Close();
+
             // Must clean up
             GC.Collect();
-            if (blnWasLocked) LockFirefoxCookies(strPath);
+            if (blnWasLocked)
+                LockFirefoxCookies(strPath);
             return false;
         }
 
@@ -182,14 +189,14 @@ internal class HTTPWrapper
                 cookAdd.HttpOnly = (row["isHttpOnly"].ToString() == "1");
                 cookAdd.Secure = (row["isSecure"].ToString() == "1");
 
-                //AddCookie("http://" + strDomain + strAddPath, cookAdd);
                 AddCookie("http://" + strDomain + strAddPath, cookAdd);
             }
         }
 
         data.Dispose();
 
-        if (blnWasLocked) LockFirefoxCookies(strPath);
+        if (blnWasLocked)
+            LockFirefoxCookies(strPath);
         return true;
     }
 
@@ -204,16 +211,15 @@ internal class HTTPWrapper
     public int ExportFirefoxCookies(string strPath, string[] domains = null, bool blnClearCookies = false)
     {
         bool blnWasLocked = blnLockFirefox;
-        if (!blnLockFirefox && !LockFirefoxCookies(strPath)) return -1;
+        if (!blnLockFirefox && !LockFirefoxCookies(strPath))
+            return -1;
 
         UnlockFirefoxCookies();
 
         int intReturn = ExportFFInternal(strPath, domains, blnClearCookies);
 
-        GC.Collect();
-
-
-        if (blnWasLocked) LockFirefoxCookies(strPath);
+        if (blnWasLocked)
+            LockFirefoxCookies(strPath);
 
         return intReturn;
     }
@@ -244,6 +250,9 @@ internal class HTTPWrapper
         catch
         {
             connection.Close();
+
+            // Must clean up
+            GC.Collect();
             return intRet;
         }
 
@@ -362,9 +371,10 @@ internal class HTTPWrapper
         catch
         {
             connection.Close();
-            return intRet;
         }
 
+        // Must clean up
+        GC.Collect();
         return intRet;
     }
 
@@ -376,25 +386,38 @@ internal class HTTPWrapper
     /// <returns>Returns whether detection was successful.</returns>
     public bool DetectFirefoxCookieLocation(out string strPath)
     {
+        // initialize default value for strPath
+        strPath = string.Empty;
+
+        // Find AppData
+        string strTemp = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Mozilla\\Firefox\\Profiles";
+
+        if (!Directory.Exists(strTemp))
+            return false;
+
+        // Search for .default profile
         try
         {
-            strPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Mozilla\\Firefox\\Profiles";
-            if (!Directory.Exists(strPath)) throw new Exception();
-
-            DirectoryInfo di = new DirectoryInfo(strPath);
+            DirectoryInfo di = new DirectoryInfo(strTemp);
             var search = di.EnumerateDirectories("*.default");
 
-            if (search.Count() != 1) throw new Exception();
-            else strPath = search.ElementAt(0).FullName + "\\cookies.sqlite";
-
-            if (!File.Exists(strPath)) throw new Exception();
-            return true;
+            if (search.Count() != 1)
+                return false;
+            else
+                strTemp = search.ElementAt(0).FullName + "\\cookies.sqlite";
         }
         catch
         {
-            strPath = string.Empty;
             return false;
         }
+        
+        // Check for SQLite database
+        if (!File.Exists(strTemp))
+            return false;
+
+        strPath = strTemp;
+        return true;
+
     }
 
     #endregion
@@ -409,8 +432,10 @@ internal class HTTPWrapper
     /// <returns>Returns whether locking was successful.</returns>
     public bool LockChromeCookies(string strPath)
     {
-        if (!File.Exists(strPath)) return false;
-        else if (blnLockChrome) UnlockChromeCookies();
+        if (!File.Exists(strPath))
+            return false;
+        else if (blnLockChrome)
+            UnlockChromeCookies();
 
         try
         {
@@ -418,7 +443,8 @@ internal class HTTPWrapper
         }
         catch
         {
-            if (strmLockChrome != null) strmLockChrome.Close();
+            if (strmLockChrome != null)
+                strmLockChrome.Close();
             return false;
         }
 
@@ -432,7 +458,8 @@ internal class HTTPWrapper
     /// </summary>
     public void UnlockChromeCookies()
     {
-        if (strmLockChrome != null) strmLockChrome.Close();
+        if (strmLockChrome != null)
+            strmLockChrome.Close();
         strmLockChrome = null;
         blnLockChrome = false;
     }
@@ -519,7 +546,8 @@ internal class HTTPWrapper
         }
 
 
-        if (blnWasLocked) LockChromeCookies(strPath);
+        if (blnWasLocked)
+            LockChromeCookies(strPath);
         return true;
     }
 
@@ -534,14 +562,14 @@ internal class HTTPWrapper
     public int ExportChromeCookies(string strPath, string[] domains = null, bool blnClearCookies = false)
     {
         bool blnWasLocked = blnLockChrome;
-        if (!blnLockChrome && !LockChromeCookies(strPath)) return -1;
+        if (!blnLockChrome && !LockChromeCookies(strPath))
+            return -1;
         UnlockChromeCookies();
 
         int intReturn = ExportCHInternal(strPath, domains, blnClearCookies);
 
-        GC.Collect();
-
-        if (blnWasLocked) LockChromeCookies(strPath);
+        if (blnWasLocked)
+            LockChromeCookies(strPath);
         return intReturn;
     }
 
@@ -570,6 +598,9 @@ internal class HTTPWrapper
         catch
         {
             connection.Close();
+
+            // Must clean up
+            GC.Collect();
             return intRet;
         }
 
@@ -681,9 +712,9 @@ internal class HTTPWrapper
         catch
         {
             connection.Close();
-            return intRet;
         }
 
+        GC.Collect();
         return intRet;
     }
 
@@ -695,18 +726,15 @@ internal class HTTPWrapper
     /// <returns>Returns whether detection was successful.</returns>
     public bool DetectChromeCookieLocation(out string strPath)
     {
-        try
-        {
-            strPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Google\\Chrome\\User Data\\Default\\cookies";
+        strPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Google\\Chrome\\User Data\\Default\\cookies";
 
-            if (!File.Exists(strPath)) throw new Exception();
-            return true;
-        }
-        catch
+        if (!File.Exists(strPath))
         {
             strPath = string.Empty;
             return false;
         }
+            
+        return true;
     }
 
     #endregion
@@ -1559,13 +1587,15 @@ internal class HTTPWrapper
         }
         catch (Exception ex)
         {
-            if (strmRead != null) strmRead.Close();
+            if (strmRead != null)
+                strmRead.Close();
 
             ExceptionHandler(ex);
             return _ErrorMessage;
         }
 
-        if (strmRead != null) strmRead.Close();
+        if (strmRead != null)
+            strmRead.Close();
 
         return strBuilder.ToString();
     }
@@ -1728,9 +1758,7 @@ internal class HTTPWrapper
             DLState.Finished = true;
             DLState.Success = (DLState.Length == DLState.TotalReadWrite);
             fStream.Close();
-            fStream.Dispose();
             wStream.Close();
-            wStream.Dispose();
             wResponse.Close();
             DLState.WebRequest = null;
             DLState.Callback.Invoke(DLState);
@@ -1750,12 +1778,10 @@ internal class HTTPWrapper
         if ((fStream != null))
         {
             fStream.Close();
-            fStream.Dispose();
         }
         if ((wStream != null))
         {
             wStream.Close();
-            wStream.Dispose();
         }
         if ((wResponse != null))
         {
@@ -1847,7 +1873,6 @@ internal class HTTPWrapper
             ULState.Finished = true;
             ULState.Success = (ULState.Length == ULState.TotalReadWrite);
             wReqStream.Close();
-            wReqStream.Dispose();
 
             wResponse = (HttpWebResponse)wRequest.GetResponse();
             wResStream = wResponse.GetResponseStream();
@@ -1870,7 +1895,6 @@ internal class HTTPWrapper
             }
             ULState.Response = Encoding.Default.GetString(readResponse);
             wResStream.Close();
-            wResStream.Dispose();
             wResponse.Close();
             ULState.GotResponse = true;
             ULState.WebRequest = null;
@@ -1890,13 +1914,11 @@ internal class HTTPWrapper
             if ((wReqStream != null))
             {
                 wReqStream.Close();
-                wReqStream.Dispose();
             }
         }
         if ((wResStream != null))
         {
             wResStream.Close();
-            wResStream.Dispose();
         }
         if ((wResponse != null))
         {
