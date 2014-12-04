@@ -11,7 +11,7 @@ internal class DownloadManager
     private string _URL = string.Empty;
     private string _Referer = string.Empty;
     private string _FileLocation = string.Empty;
-    private HTTPWrapper.DownloadCallback _Callback = null;
+    private HTTP.DownloadCallback _Callback = null;
     private int _BufferSize = 8192;
     private long _Length = 0;
     private int _ReadWrite = 0;
@@ -42,13 +42,13 @@ internal class DownloadManager
         this.FileLocation = FileLocation;
     }
 
-    public DownloadManager(string URL, string FileLocation, HTTPWrapper.DownloadCallback Callback)
+    public DownloadManager(string URL, string FileLocation, HTTP.DownloadCallback Callback)
         : this(URL, FileLocation)
     {
         this.Callback = Callback;
     }
 
-    public DownloadManager(string URL, string FileLocation, HTTPWrapper.DownloadCallback Callback, int BufferSize)
+    public DownloadManager(string URL, string FileLocation, HTTP.DownloadCallback Callback, int BufferSize)
         : this(URL, FileLocation, Callback)
     {
         this.BufferSize = BufferSize;
@@ -72,7 +72,7 @@ internal class DownloadManager
         set { _FileLocation = value; }
     }
 
-    public HTTPWrapper.DownloadCallback Callback
+    public HTTP.DownloadCallback Callback
     {
         get { return _Callback; }
         set { _Callback = value; }

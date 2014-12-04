@@ -17,12 +17,12 @@ using System.Web;
 using System.Collections;
 using System.Threading.Tasks;
 
-internal class HTTPWrapper
+internal class HTTP
 {
     #region Declarations
 
     //Declarations
-    private const string conUserAgent = "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.120 Safari/537.36";
+    private const string conUserAgent = "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
     private bool _UseGzip = true;
     private int _Timeout = 7000;
     private string _UserAgent = conUserAgent;
@@ -30,11 +30,8 @@ internal class HTTPWrapper
     private bool _UseProxy = false;
     private WebProxy _Proxy;
     private bool _UsePipelining = false;
-    private bool _PrivateBrowsing = false;
-    private ThreadPriority _ThreadPriority = ThreadPriority.AboveNormal;
     private Encoding _Encoding = Encoding.UTF8;
     private int _BufferSize = 8192;
-    private int _SleepDelay = 75;
     private bool _UseCaching = true;
 
 
@@ -56,11 +53,11 @@ internal class HTTPWrapper
     public delegate void DownloadCallback(DownloadManager dlDstate);
     public delegate void UploadCallback(UploadManager ulUstate);
 
-    public HTTPWrapper()
+    public HTTP()
     {
     }
 
-    public HTTPWrapper(ExceptionCatcherSub ExCatcher)
+    public HTTP(ExceptionCatcherSub ExCatcher)
     {
         ExceptionCatcher = ExCatcher;
     }
@@ -742,10 +739,11 @@ internal class HTTPWrapper
     #region Properties
 
     /// <summary>
-    /// Sets the exception catcher.
+    /// Gets or sets the exception catcher.
     /// </summary>
     public ExceptionCatcherSub ExCatcher
     {
+        get { return ExceptionCatcher; }
         set { ExceptionCatcher = value; }
     }
 
@@ -820,30 +818,12 @@ internal class HTTPWrapper
     }
 
     /// <summary>
-    /// Gets or sets a value that indicates whether each request will be recorded as the last page.
-    /// </summary>
-    public bool PrivateBrowsing
-    {
-        get { return _PrivateBrowsing; }
-        set { _PrivateBrowsing = value; }
-    }
-
-    /// <summary>
     /// Gets or sets the cookies for the wrapper to use.
     /// </summary>
     public CookieContainer Cookies
     {
         get { return _Cookies; }
         set { _Cookies = value; }
-    }
-
-    /// <summary>
-    /// Gets or sets the thread priority of the asynchronous thread for requests.
-    /// </summary>
-    public ThreadPriority ThreadPriority
-    {
-        get { return _ThreadPriority; }
-        set { _ThreadPriority = value; }
     }
 
     /// <summary>
@@ -862,15 +842,6 @@ internal class HTTPWrapper
     {
         get { return _BufferSize; }
         set { _BufferSize = value; }
-    }
-
-    /// <summary>
-    /// Gets or sets the delay in milliseconds between checking for page load completion.
-    /// </summary>
-    public int SleepDelay
-    {
-        get { return _SleepDelay; }
-        set { _SleepDelay = value; }
     }
 
     /// <summary>
@@ -1292,7 +1263,7 @@ internal class HTTPWrapper
     /// <returns></returns>
     public object Clone()
     {
-        return (HTTPWrapper)MemberwiseClone();
+        return (HTTP)MemberwiseClone();
     }
 
 
@@ -1302,11 +1273,11 @@ internal class HTTPWrapper
     #region Requests
 
     /// <summary>
-    /// Initiates a request to a specified URL using "GET" headers.
+    /// Synchronously initiates a request to a specified URL using "GET" headers.
     /// </summary>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns>The data returned by the request.</returns>
+    /// <returns>A Result object representing the result of the request.</returns>
     public Result<string> GetRequest(string strURL, bool setLastPage = true)
     {
         return GetRequest(strURL, string.Empty, setLastPage);
@@ -1314,12 +1285,12 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a request to a specified URL using "GET" headers.
+    /// Synchronously initiates a request to a specified URL using "GET" headers.
     /// </summary>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns>The data returned by the request.</returns>
+    /// <returns>A Result object representing the result of the request.</returns>
     public Result<string> GetRequest(string strURL, string strReferer, bool setLastPage = true)
     {
         return Request("GET", strURL, strReferer);
@@ -1327,12 +1298,12 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a request to a specified URL and POST data using "POST" headers.
+    /// Synchronously initiates a request to a specified URL and POST data using "POST" headers.
     /// </summary>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="strPostData">Required. The data to send along with POST request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
+    /// <returns>A Result object representing the result of the request.</returns>
     public Result<string> PostRequest(string strURL, string strPostData, bool setLastPage = true)
     {
         return PostRequest(strURL, strPostData, string.Empty, setLastPage);
@@ -1340,13 +1311,13 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a request to a specified URL and POST data using "POST" headers.
+    /// Synchronously initiates a request to a specified URL and POST data using "POST" headers.
     /// </summary>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="strPostData">Required. The data to send along with POST request.</param>
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
+    /// <returns>A Result object representing the result of the request.</returns>
     public Result<string> PostRequest(string strURL, string strPostData, string strReferer, bool setLastPage = true)
     {
         return Request("POST", strURL, strPostData, strReferer, setLastPage);
@@ -1354,7 +1325,7 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
+    /// Synchronously initiates a custom request to a specified URL with a custom method and optional parameters.
     /// </summary>
     /// <param name="strMethod">Required. The header method to be used in the request.</param>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
@@ -1367,13 +1338,13 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
+    /// Synchronously initiates a custom request to a specified URL with a custom method and optional parameters.
     /// </summary>
     /// <param name="strMethod">Required. The header method to be used in the request.</param>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
+    /// <returns>A Result object representing the result of the request.</returns>
     public Result<string> Request(string strMethod, string strURL, string strReferer, bool setLastPage = true)
     {
         return Request(strMethod, strURL, string.Empty, strReferer, setLastPage);
@@ -1381,14 +1352,14 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
+    /// Synchronously initiates a custom request to a specified URL with a custom method and optional parameters.
     /// </summary>
     /// <param name="strMethod">Required. The header method to be used in the request.</param>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="strPostData">Required. Data to be sent along with the URL.</param>
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
+    /// <returns>A Result object representing the result of the request.</returns>
     public Result<string> Request(string strMethod, string strURL, string strPostData, string strReferer, bool setLastPage = true)
     {
         AsyncRequest<string> asyncTask = RequestAsync(strMethod, strURL, strPostData, strReferer, setLastPage);
@@ -1450,13 +1421,13 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a request to the URL of an image and downloads it as a Bitmap.
+    /// Synchronously initiates a request to the URL of an image and downloads it as a Bitmap.
     /// </summary>
     /// <param name="strURL">Required. The Uniform Resource Locator of the image to request.</param>
     /// <param name="intTimeout">Optional. The maximum time to wait for request before terminating. If not set, the wrapper's timeout value will be used.</param>
     /// <param name="strReferer">Optional. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns>Returns downloaded Bitmap if successful or null if unsuccessful.</returns>
+    /// <returns>A Result object representing the result of the request.</returns>
     public Result<Bitmap> DownloadImage(string strURL, int intTimeout = -1, string strReferer = "", bool setLastPage = false)
     {
         AsyncRequest<Bitmap> asyncTask = DownloadImageAsync(strURL, intTimeout, strReferer, setLastPage);
@@ -1742,7 +1713,31 @@ internal class HTTPWrapper
     }
 
 
-    public HttpWebRequest SetupRequest(string strMethod, string strURL, string strReferer, bool setLastPage, string strData = null)
+    /// <summary>
+    /// Generates an <code>HttpWebRequest</code> object with the given parameters and current <code>HTTP</code> object properties.
+    /// </summary>
+    /// <param name="strMethod">Required. The header method to be used in the request.</param>
+    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
+    /// <param name="strReferer">Optional. The URL to send as the last page visited.</param>
+    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
+    /// <param name="strData">Optional. A string representation of the ata to be sent along with the URL.</param>
+    /// <returns>An instance of <code>HttpWebRequest</code> with the specified settings.</returns>
+    public HttpWebRequest SetupRequest(string strMethod, string strURL, string strReferer = "", bool setLastPage = true, string strData = null)
+    {
+        return SetupRequest(strMethod, strURL, strReferer, setLastPage, _Encoding.GetBytes(strData));
+    }
+
+
+    /// <summary>
+    /// Generates an <code>HttpWebRequest</code> object with the given parameters and current <code>HTTP</code> object properties.
+    /// </summary>
+    /// <param name="strMethod">Required. The header method to be used in the request.</param>
+    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
+    /// <param name="strReferer">Optional. The URL to send as the last page visited.</param>
+    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
+    /// <param name="arrData">Optional. A byte array of the data to be sent along with the URL.</param>
+    /// <returns>An instance of <code>HttpWebRequest</code> with the specified settings.</returns>
+    public HttpWebRequest SetupRequest(string strMethod, string strURL, string strReferer = "", bool setLastPage = true, byte[] arrData = null)
     {
         HttpWebRequest request;
 
@@ -1810,17 +1805,16 @@ internal class HTTPWrapper
         if (setLastPage) { _LastPage = strURL; }
 
 
-        if (strData != null && !strData.Equals(string.Empty))
+        if (arrData != null)
         {
             try
             {
-                byte[] byData = _Encoding.GetBytes(strData);
                 request.ContentType = "application/x-www-form-urlencoded";
-                request.ContentLength = byData.Length;
+                request.ContentLength = arrData.Length;
 
                 using (Stream PostData = request.GetRequestStream())
                 {
-                    PostData.Write(byData, 0, byData.Length);
+                    PostData.Write(arrData, 0, arrData.Length);
                 }
             }
             catch (Exception ex)
@@ -1913,11 +1907,11 @@ internal class HTTPWrapper
     #region Async Requests
 
     /// <summary>
-    /// Initiates a request to a specified URL using "GET" headers.
+    /// Asynchronously initiates a request to a specified URL using "GET" headers.
     /// </summary>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns>The data returned by the request.</returns>
+    /// <returns>An AsyncRequest object representing the request Task to be completed in the future.</returns>
     public AsyncRequest<string> GetRequestAsync(string strURL, bool setLastPage = true)
     {
         return GetRequestAsync(strURL, string.Empty, setLastPage);
@@ -1925,12 +1919,12 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a request to a specified URL using "GET" headers.
+    /// Asynchronously nitiates a request to a specified URL using "GET" headers.
     /// </summary>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns>The data returned by the request.</returns>
+    /// <returns>An AsyncRequest object representing the request Task to be completed in the future.</returns>
     public AsyncRequest<string> GetRequestAsync(string strURL, string strReferer, bool setLastPage = true)
     {
         return RequestAsync("GET", strURL, strReferer);
@@ -1938,12 +1932,12 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a request to a specified URL and POST data using "POST" headers.
+    /// Asynchronously initiates a request to a specified URL and POST data using "POST" headers.
     /// </summary>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="strPostData">Required. The data to send along with POST request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
+    /// <returns>An AsyncRequest object representing the request Task to be completed in the future.</returns>
     public AsyncRequest<string> PostRequestAsync(string strURL, string strPostData, bool setLastPage = true)
     {
         return PostRequestAsync(strURL, strPostData, string.Empty, setLastPage);
@@ -1951,13 +1945,13 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a request to a specified URL and POST data using "POST" headers.
+    /// Asynchronously initiates a request to a specified URL and POST data using "POST" headers.
     /// </summary>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="strPostData">Required. The data to send along with POST request.</param>
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
+    /// <returns>An AsyncRequest object representing the request Task to be completed in the future.</returns>
     public AsyncRequest<string> PostRequestAsync(string strURL, string strPostData, string strReferer, bool setLastPage = true)
     {
         return RequestAsync("POST", strURL, strPostData, strReferer, setLastPage);
@@ -1965,12 +1959,12 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
+    /// Asynchronously initiates a custom request to a specified URL with a custom method and optional parameters.
     /// </summary>
     /// <param name="strMethod">Required. The header method to be used in the request.</param>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
+    /// <returns>An AsyncRequest object representing the request Task to be completed in the future.</returns>
     public AsyncRequest<string> RequestAsync(string strMethod, string strURL, bool setLastPage = true)
     {
         return RequestAsync(strMethod, strURL, string.Empty, string.Empty);
@@ -1978,13 +1972,13 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
+    /// Asynchronously nitiates a custom request to a specified URL with a custom method and optional parameters.
     /// </summary>
     /// <param name="strMethod">Required. The header method to be used in the request.</param>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
+    /// <returns>An AsyncRequest object representing the request Task to be completed in the future.</returns>
     public AsyncRequest<string> RequestAsync(string strMethod, string strURL, string strReferer, bool setLastPage = true)
     {
         return RequestAsync(strMethod, strURL, string.Empty, strReferer, setLastPage);
@@ -1992,7 +1986,7 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
+    /// Asynchronously initiates a custom request to a specified URL with a custom method and optional parameters.
     /// </summary>
     /// <param name="strMethod">Required. The header method to be used in the request.</param>
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
@@ -2025,17 +2019,18 @@ internal class HTTPWrapper
 
                 stopwatch.Stop();
 
-                if (tmp == null)
-                    return new Result<string>(null, false, stopwatch.ElapsedMilliseconds);
-                else if (tmp is Stream)
-                {
-                    stopwatch.Start();
+                if (tmp is Stream)
                     strmResponse = (Stream)tmp;
-                }
                 else if (tmp is Exception)
+                {
+                    stopwatch.Stop();
                     return new Result<string>(null, false, stopwatch.ElapsedMilliseconds, (Exception)tmp);
+                }  
                 else
+                {
+                    stopwatch.Stop();
                     return new Result<string>(null, false, stopwatch.ElapsedMilliseconds);
+                } 
             }
 
             if (cancel.IsCancellationRequested)
@@ -2060,13 +2055,13 @@ internal class HTTPWrapper
 
 
     /// <summary>
-    /// Initiates a request to the URL of an image and downloads it as a Bitmap.
+    /// Asynchronously initiates a request to the URL of an image and downloads it as a Bitmap.
     /// </summary>
     /// <param name="strURL">Required. The Uniform Resource Locator of the image to request.</param>
     /// <param name="intTimeout">Optional. The maximum time to wait for request before terminating. If not set, the wrapper's timeout value will be used.</param>
     /// <param name="strReferer">Optional. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns>Returns downloaded Bitmap if successful or null if unsuccessful.</returns>
+    /// <returns>An AsyncRequest object representing the request Task to be completed in the future.</returns>
     public AsyncRequest<Bitmap> DownloadImageAsync(string strURL, int intTimeout = -1, string strReferer = "", bool setLastPage = false)
     {
         CancellationTokenSource cancel = new CancellationTokenSource();
@@ -2084,19 +2079,18 @@ internal class HTTPWrapper
             {
                 object tmp = Go(cancel.Token, "PIC", strURL, strReferer, setLastPage);
 
-                stopwatch.Stop();
-
-                if (tmp == null)
-                    return new Result<Bitmap>(null, false, stopwatch.ElapsedMilliseconds);
-                else if (tmp is Stream)
-                {
-                    stopwatch.Start();
+                if (tmp is Stream)
                     strmResponse = (Stream)tmp;
-                }
                 else if (tmp is Exception)
+                {
+                    stopwatch.Stop();
                     return new Result<Bitmap>(null, false, stopwatch.ElapsedMilliseconds, (Exception)tmp);
+                }
                 else
+                {
+                    stopwatch.Stop();
                     return new Result<Bitmap>(null, false, stopwatch.ElapsedMilliseconds);
+                }
             }
 
             try

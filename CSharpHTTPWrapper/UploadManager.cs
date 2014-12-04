@@ -9,7 +9,7 @@ using System.Net;
 internal class UploadManager : DownloadManager
 {
 
-    private HTTPWrapper.UploadCallback _Callback = null;
+    private HTTP.UploadCallback _Callback = null;
     private string _PostData = string.Empty;
     private string _Response = string.Empty;
 
@@ -25,13 +25,13 @@ internal class UploadManager : DownloadManager
         this.PostData = Postdata;
     }
 
-    public UploadManager(string URL, string Postdata, HTTPWrapper.UploadCallback Callback)
+    public UploadManager(string URL, string Postdata, HTTP.UploadCallback Callback)
         : this(URL, Postdata)
     {
         this.Callback = Callback;
     }
 
-    public UploadManager(string URL, string Postdata, HTTPWrapper.UploadCallback Callback, int BufferSize)
+    public UploadManager(string URL, string Postdata, HTTP.UploadCallback Callback, int BufferSize)
         : this(URL, Postdata, Callback)
     {
         this.BufferSize = BufferSize;
@@ -43,7 +43,7 @@ internal class UploadManager : DownloadManager
         set { _PostData = value; }
     }
 
-    public new HTTPWrapper.UploadCallback Callback
+    public new HTTP.UploadCallback Callback
     {
         get { return _Callback; }
         set { _Callback = value; }
