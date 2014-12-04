@@ -1307,7 +1307,7 @@ internal class HTTPWrapper
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns>The data returned by the request.</returns>
-    public HTTPResult<string> GetRequest(string strURL, bool setLastPage = true)
+    public Result<string> GetRequest(string strURL, bool setLastPage = true)
     {
         return GetRequest(strURL, string.Empty, setLastPage);
     }
@@ -1320,7 +1320,7 @@ internal class HTTPWrapper
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns>The data returned by the request.</returns>
-    public HTTPResult<string> GetRequest(string strURL, string strReferer, bool setLastPage = true)
+    public Result<string> GetRequest(string strURL, string strReferer, bool setLastPage = true)
     {
         return Request("GET", strURL, strReferer);
     }
@@ -1333,7 +1333,7 @@ internal class HTTPWrapper
     /// <param name="strPostData">Required. The data to send along with POST request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns></returns>
-    public HTTPResult<string> PostRequest(string strURL, string strPostData, bool setLastPage = true)
+    public Result<string> PostRequest(string strURL, string strPostData, bool setLastPage = true)
     {
         return PostRequest(strURL, strPostData, string.Empty, setLastPage);
     }
@@ -1347,7 +1347,7 @@ internal class HTTPWrapper
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns></returns>
-    public HTTPResult<string> PostRequest(string strURL, string strPostData, string strReferer, bool setLastPage = true)
+    public Result<string> PostRequest(string strURL, string strPostData, string strReferer, bool setLastPage = true)
     {
         return Request("POST", strURL, strPostData, strReferer, setLastPage);
     }
@@ -1360,7 +1360,7 @@ internal class HTTPWrapper
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns></returns>
-    public HTTPResult<string> Request(string strMethod, string strURL, bool setLastPage = true)
+    public Result<string> Request(string strMethod, string strURL, bool setLastPage = true)
     {
         return Request(strMethod, strURL, string.Empty, string.Empty);
     }
@@ -1374,7 +1374,7 @@ internal class HTTPWrapper
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns></returns>
-    public HTTPResult<string> Request(string strMethod, string strURL, string strReferer, bool setLastPage = true)
+    public Result<string> Request(string strMethod, string strURL, string strReferer, bool setLastPage = true)
     {
         return Request(strMethod, strURL, string.Empty, strReferer, setLastPage);
     }
@@ -1389,41 +1389,20 @@ internal class HTTPWrapper
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns></returns>
-    public HTTPResult<string> Request(string strMethod, string strURL, string strPostData, string strReferer, bool setLastPage = true)
+    public Result<string> Request(string strMethod, string strURL, string strPostData, string strReferer, bool setLastPage = true)
     {
-        HTTPResult<string> result = null;
+        AsyncRequest<string> asyncTask = RequestAsync(strMethod, strURL, strPostData, strReferer, setLastPage);
 
-        Thread tGo = new Thread(() =>
-        {
-            // Start timer
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            string strResult = null;
-
-            bool success = GetString(out strResult, Go(strMethod, strURL, strReferer, setLastPage, strPostData));
-
-            stopwatch.Stop();
-            result = new HTTPResult<string>(strResult, success, stopwatch.ElapsedMilliseconds);
-        });
-
-        tGo.Priority = _ThreadPriority;
-        tGo.IsBackground = true;
-
-        // Start process
-        tGo.Start();
-
-        // Wait for process
-        tGo.Join(_Timeout);
+        asyncTask.Task.Wait(_Timeout);
 
         // Stop process
-        if (tGo.IsAlive) tGo.Abort();
+        if (!asyncTask.Task.IsCompleted) asyncTask.CancelToken.Cancel();
 
-        return result;
+        return asyncTask.Task.Result;
     }
 
 
-    private bool GetString(out string strResult, Stream strmRead)
+    private bool GetString(CancellationToken cancel, out string strResult, Stream strmRead)
     {
         strResult = null;
 
@@ -1439,11 +1418,19 @@ internal class HTTPWrapper
         {
             using (StreamReader wReader = new StreamReader(strmRead, _Encoding))
             {
+                cancel.ThrowIfCancellationRequested();
                 while ((intRead = wReader.ReadBlock(buffer, 0, _BufferSize)) != 0)
                 {
                     strBuilder.Append(buffer, 0, intRead);
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            if (strmRead != null)
+                strmRead.Close();
+
+            return false;
         }
         catch (Exception ex)
         {
@@ -1470,54 +1457,16 @@ internal class HTTPWrapper
     /// <param name="strReferer">Optional. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns>Returns downloaded Bitmap if successful or null if unsuccessful.</returns>
-    public HTTPResult<Bitmap> DownloadImage(string strURL, int intTimeout = -1, string strReferer = "", bool setLastPage = false)
+    public Result<Bitmap> DownloadImage(string strURL, int intTimeout = -1, string strReferer = "", bool setLastPage = false)
     {
-        HTTPResult<Bitmap> result = null;
+        AsyncRequest<Bitmap> asyncTask = DownloadImageAsync(strURL, intTimeout, strReferer, setLastPage);
 
-        Thread tGo = new Thread(() =>
-        {
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            Bitmap bmpResult = null;
-            Stream strmResult = Go("PIC", strURL, strReferer, setLastPage);
-            try
-            {
-                bmpResult = new Bitmap(strmResult);
-            }
-            catch (Exception ex)
-            {
-                ExceptionHandler(ex);
-            }
-
-            stopwatch.Stop();
-
-            if (strmResult != null)
-                strmResult.Dispose();
-
-            result = new HTTPResult<Bitmap>(bmpResult, bmpResult != null, stopwatch.ElapsedMilliseconds);
-        });
-
-        tGo.Priority = _ThreadPriority;
-        tGo.IsBackground = true;
-
-        // Start process
-        tGo.Start();
-
-        // Wait for process
-        if (intTimeout >= 0)
-        {
-            tGo.Join(intTimeout);
-        }
-        else
-        {
-            tGo.Join();
-        }
+        asyncTask.Task.Wait(_Timeout);
 
         // Stop process
-        if (tGo.IsAlive) tGo.Abort();
+        if (!asyncTask.Task.IsCompleted) asyncTask.CancelToken.Cancel();
 
-        return result;
+        return asyncTask.Task.Result;
     }
 
 
@@ -1530,16 +1479,21 @@ internal class HTTPWrapper
     /// <returns></returns>
     public bool DownloadFile(string strURL, string FileLocation, string strReferer = "", int intBufferSize = 8192)
     {
+        object response = Go(new CancellationToken(), "GET", strURL, strReferer, false);
+
+        if (!(response is Stream))
+            return false;
+
         try
         {
             string strHTML = string.Empty;
-            using (Stream response = Go("GET", strURL, strReferer, false))
+            using (Stream strmResponse = (Stream)response)
             {
                 using (FileStream file = new FileStream(FileLocation, FileMode.Create, FileAccess.Write, FileShare.Write))
                 {
                     byte[] buffer = new byte[intBufferSize];
                     int intRead = 0;
-                    while ((intRead = response.Read(buffer, 0, buffer.Length)) != 0)
+                    while ((intRead = strmResponse.Read(buffer, 0, buffer.Length)) != 0)
                     {
                         file.Write(buffer, 0, intRead);
                     }
@@ -1880,25 +1834,43 @@ internal class HTTPWrapper
     }
 
 
-    private Stream Go(string strMethod, string strURL, string strReferer, bool setLastPage, string strData = null)
+    private object Go(CancellationToken cancel, string strMethod, string strURL, string strReferer, bool setLastPage, string strData = null)
     {
-       return Go(SetupRequest(strMethod, strURL, strReferer, setLastPage, strData));
+       return Go(cancel, SetupRequest(strMethod, strURL, strReferer, setLastPage, strData));
     }
 
 
-    private Stream Go(HttpWebRequest request)
+    private object Go(CancellationToken cancel, HttpWebRequest request)
     {
         Stream strmResponse = null;
 
         if (request == null) return null;
 
+        IAsyncResult asyncResult = null;
+
+        if (cancel.IsCancellationRequested)
+            return new OperationCanceledException();
+
         try
         {
-            strmResponse = ((HttpWebResponse)request.GetResponse()).GetResponseStream();
+            asyncResult = request.BeginGetResponse(null, request);
+
+            while (!asyncResult.IsCompleted)
+            {
+                cancel.ThrowIfCancellationRequested();
+            }
+
+            strmResponse = (request.EndGetResponse(asyncResult)).GetResponseStream();
+        }
+        catch (OperationCanceledException ex)
+        {
+            request.Abort();
+            return ex;
         }
         catch (Exception ex)
         {
             ExceptionHandler(ex);
+            return ex;
         }
         return strmResponse;
     }
@@ -1937,49 +1909,327 @@ internal class HTTPWrapper
 
     #endregion
 
-}
+
+    #region Async Requests
+
+    /// <summary>
+    /// Initiates a request to a specified URL using "GET" headers.
+    /// </summary>
+    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
+    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
+    /// <returns>The data returned by the request.</returns>
+    public AsyncRequest<string> GetRequestAsync(string strURL, bool setLastPage = true)
+    {
+        return GetRequestAsync(strURL, string.Empty, setLastPage);
+    }
 
 
-internal class HTTPResult<T>
-{
+    /// <summary>
+    /// Initiates a request to a specified URL using "GET" headers.
+    /// </summary>
+    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
+    /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
+    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
+    /// <returns>The data returned by the request.</returns>
+    public AsyncRequest<string> GetRequestAsync(string strURL, string strReferer, bool setLastPage = true)
+    {
+        return RequestAsync("GET", strURL, strReferer);
+    }
 
-    #region Members
 
-    protected T _Result;
-    protected bool _Success;
-    protected long _RequestTime;
+    /// <summary>
+    /// Initiates a request to a specified URL and POST data using "POST" headers.
+    /// </summary>
+    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
+    /// <param name="strPostData">Required. The data to send along with POST request.</param>
+    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
+    /// <returns></returns>
+    public AsyncRequest<string> PostRequestAsync(string strURL, string strPostData, bool setLastPage = true)
+    {
+        return PostRequestAsync(strURL, strPostData, string.Empty, setLastPage);
+    }
+
+
+    /// <summary>
+    /// Initiates a request to a specified URL and POST data using "POST" headers.
+    /// </summary>
+    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
+    /// <param name="strPostData">Required. The data to send along with POST request.</param>
+    /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
+    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
+    /// <returns></returns>
+    public AsyncRequest<string> PostRequestAsync(string strURL, string strPostData, string strReferer, bool setLastPage = true)
+    {
+        return RequestAsync("POST", strURL, strPostData, strReferer, setLastPage);
+    }
+
+
+    /// <summary>
+    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
+    /// </summary>
+    /// <param name="strMethod">Required. The header method to be used in the request.</param>
+    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
+    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
+    /// <returns></returns>
+    public AsyncRequest<string> RequestAsync(string strMethod, string strURL, bool setLastPage = true)
+    {
+        return RequestAsync(strMethod, strURL, string.Empty, string.Empty);
+    }
+
+
+    /// <summary>
+    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
+    /// </summary>
+    /// <param name="strMethod">Required. The header method to be used in the request.</param>
+    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
+    /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
+    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
+    /// <returns></returns>
+    public AsyncRequest<string> RequestAsync(string strMethod, string strURL, string strReferer, bool setLastPage = true)
+    {
+        return RequestAsync(strMethod, strURL, string.Empty, strReferer, setLastPage);
+    }
+
+
+    /// <summary>
+    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
+    /// </summary>
+    /// <param name="strMethod">Required. The header method to be used in the request.</param>
+    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
+    /// <param name="strPostData">Required. Data to be sent along with the URL.</param>
+    /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
+    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
+    /// <returns></returns>
+    public AsyncRequest<string> RequestAsync(string strMethod, string strURL, string strPostData, string strReferer, bool setLastPage = true)
+    {
+        CancellationTokenSource cancel = new CancellationTokenSource();
+
+        Task<Result<string>> taskGo = new Task<Result<string>>((obj) =>
+        {
+            Stopwatch stopwatch = new Stopwatch();
+
+            // Start timer
+            stopwatch.Start();
+
+            string strResult = null;
+
+            if (cancel.IsCancellationRequested)
+            {
+                stopwatch.Stop();
+                return new Result<string>(null, false, stopwatch.ElapsedMilliseconds);
+            }
+
+            Stream strmResponse;
+            {
+                object tmp = Go(cancel.Token, strMethod, strURL, strReferer, setLastPage, strPostData);
+
+                stopwatch.Stop();
+
+                if (tmp == null)
+                    return new Result<string>(null, false, stopwatch.ElapsedMilliseconds);
+                else if (tmp is Stream)
+                {
+                    stopwatch.Start();
+                    strmResponse = (Stream)tmp;
+                }
+                else if (tmp is Exception)
+                    return new Result<string>(null, false, stopwatch.ElapsedMilliseconds, (Exception)tmp);
+                else
+                    return new Result<string>(null, false, stopwatch.ElapsedMilliseconds);
+            }
+
+            if (cancel.IsCancellationRequested)
+            {
+                stopwatch.Stop();
+                if (strmResponse != null) strmResponse.Dispose();
+                return new Result<string>(null, false, stopwatch.ElapsedMilliseconds);
+            }
+
+            bool success = GetString(cancel.Token, out strResult, strmResponse);
+
+            stopwatch.Stop();
+            return new Result<string>(strResult, success, stopwatch.ElapsedMilliseconds);
+        }, cancel, TaskCreationOptions.LongRunning);
+
+
+        // Start process
+        taskGo.Start();
+
+        return new AsyncRequest<string>(taskGo, cancel);
+    }
+
+
+    /// <summary>
+    /// Initiates a request to the URL of an image and downloads it as a Bitmap.
+    /// </summary>
+    /// <param name="strURL">Required. The Uniform Resource Locator of the image to request.</param>
+    /// <param name="intTimeout">Optional. The maximum time to wait for request before terminating. If not set, the wrapper's timeout value will be used.</param>
+    /// <param name="strReferer">Optional. The URL to send as the last page visited.</param>
+    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
+    /// <returns>Returns downloaded Bitmap if successful or null if unsuccessful.</returns>
+    public AsyncRequest<Bitmap> DownloadImageAsync(string strURL, int intTimeout = -1, string strReferer = "", bool setLastPage = false)
+    {
+        CancellationTokenSource cancel = new CancellationTokenSource();
+
+        Task<Result<Bitmap>> taskGo = new Task<Result<Bitmap>>((obj) =>
+        {
+            Result<Bitmap> result = new Result<Bitmap>(null, false, 0);
+
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            Bitmap bmpResult = null;
+            Stream strmResponse;
+
+            {
+                object tmp = Go(cancel.Token, "PIC", strURL, strReferer, setLastPage);
+
+                stopwatch.Stop();
+
+                if (tmp == null)
+                    return new Result<Bitmap>(null, false, stopwatch.ElapsedMilliseconds);
+                else if (tmp is Stream)
+                {
+                    stopwatch.Start();
+                    strmResponse = (Stream)tmp;
+                }
+                else if (tmp is Exception)
+                    return new Result<Bitmap>(null, false, stopwatch.ElapsedMilliseconds, (Exception)tmp);
+                else
+                    return new Result<Bitmap>(null, false, stopwatch.ElapsedMilliseconds);
+            }
+
+            try
+            {
+                bmpResult = new Bitmap(strmResponse);
+            }
+            catch (Exception ex)
+            {
+                ExceptionHandler(ex);
+                
+            }
+
+            stopwatch.Stop();
+
+            if (strmResponse != null)
+                strmResponse.Dispose();
+
+            return new Result<Bitmap>(bmpResult, bmpResult != null, stopwatch.ElapsedMilliseconds);
+        }, cancel, TaskCreationOptions.LongRunning);
+
+
+        // Start process
+        taskGo.Start();
+
+        return new AsyncRequest<Bitmap>(taskGo, cancel);
+    }
 
     #endregion
 
 
-    public HTTPResult(T result, bool success, long intRequestTime)
+    #region Classes
+
+    internal class Result<T>
     {
-        _Result = result;
-        _Success = success;
-        _RequestTime = intRequestTime;
+        #region Members
+        protected T _Value;
+        protected bool _Success;
+        protected long _RequestTime;
+        protected Exception _ExceptionThrown;
+        #endregion
+
+        /// <summary>
+        /// Initializes a new HTTPResult with given result values.
+        /// </summary>
+        /// <param name="value">Required. The value of an HTTPWrapper request.</param>
+        /// <param name="success">Required. Whether the request was successful.</param>
+        /// <param name="intRequestTime">Required. The amount of time the request executed for.</param>
+        /// <param name="exceptionThrown">Optional. The exception thrown, if applicable.</param>
+        public Result(T value, bool success, long intRequestTime, Exception exceptionThrown = null)
+        {
+            _Value = value;
+            _Success = success;
+            _RequestTime = intRequestTime;
+            _ExceptionThrown = exceptionThrown;
+        }
+
+        public override string ToString()
+        {
+            if (_Value is string)
+                return Value.ToString();
+            else
+                return base.ToString();
+        }
+
+        #region Properties
+
+        /// <summary>
+        /// Gets the result of an HTTPWrapper request.
+        /// </summary>
+        public T Value
+        {
+            get { return _Value; }
+        }
+
+        /// <summary>
+        /// Gets whether the HTTPWrapper request was successful.
+        /// </summary>
+        public bool Success
+        {
+            get { return _Success; }
+        }
+
+        /// <summary>
+        /// Gets the amount of time the HTTPWrapper request executed for.
+        /// </summary>
+        public long RequestTime
+        {
+            get { return _RequestTime; }
+        }
+
+        /// <summary>
+        /// The exception thrown during the request, if applicable.
+        /// </summary>
+        public Exception ExceptionThrown
+        {
+            get { return _ExceptionThrown; }
+        }
+
+
+
+        #endregion
     }
 
-    public T Result
+    internal class AsyncRequest<T>
     {
-        get { return _Result; }
-        set { _Result = value; }
-    }
-    
-    public bool Success
-    {
-        get { return _Success; }
+        #region Members
+        private Task<Result<T>> _Task;
+        private CancellationTokenSource _Cancel;
+        #endregion
+
+        public AsyncRequest(Task<Result<T>> task, CancellationTokenSource cancel)
+        {
+            _Task = task;
+            _Cancel = cancel;
+        }
+
+        #region Properties
+
+        public Task<Result<T>> Task
+        {
+            get { return _Task; }
+        }
+
+        public CancellationTokenSource CancelToken
+        {
+            get { return _Cancel; }
+        }
+
+        #endregion
+
     }
 
-    public long RequestTime
-    {
-        get { return _RequestTime; }
-    }
-
-    public override string ToString()
-    {
-        if (_Result is string)
-            return Result.ToString();
-        else
-            return base.ToString();
-    }
+    #endregion
 }
+
+
