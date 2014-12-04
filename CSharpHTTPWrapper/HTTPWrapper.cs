@@ -15,6 +15,7 @@ using System.Drawing;
 using System.Diagnostics;
 using System.Web;
 using System.Collections;
+using System.Threading.Tasks;
 
 internal class HTTPWrapper
 {
@@ -24,10 +25,8 @@ internal class HTTPWrapper
     private const string conUserAgent = "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.120 Safari/537.36";
     private bool _UseGzip = true;
     private int _Timeout = 7000;
-    private long _LastRequestTime = 0;
     private string _UserAgent = conUserAgent;
     private string _LastPage = "http://www.google.com/";
-    private string _ErrorMessage = "{HTTPWRAPPER ERROR}";
     private bool _UseProxy = false;
     private WebProxy _Proxy;
     private bool _UsePipelining = false;
@@ -799,7 +798,7 @@ internal class HTTPWrapper
     public int Timeout
     {
         get { return _Timeout; }
-        set { _Timeout = value; }
+        set { _Timeout = Math.Abs(value); }
     }
 
     /// <summary>
@@ -836,23 +835,6 @@ internal class HTTPWrapper
     {
         get { return _Cookies; }
         set { _Cookies = value; }
-    }
-
-    /// <summary>
-    /// Gets the last page load time in milliseconds.
-    /// </summary>
-    public long LastRequestTime
-    {
-        get { return _LastRequestTime; }
-    }
-
-    /// <summary>
-    /// Gets or sets the error message to be displayed if an error occurs during a request.
-    /// </summary>
-    public string ErrorMessage
-    {
-        get { return _ErrorMessage; }
-        set { _ErrorMessage = value; }
     }
 
     /// <summary>
@@ -1299,7 +1281,7 @@ internal class HTTPWrapper
     {
         if ((ExceptionCatcher != null))
         {
-            ExceptionCatcher.Invoke(this, Ex);
+            ExceptionCatcher.BeginInvoke(this, Ex, null, null);
         }
     }
 
@@ -1325,7 +1307,7 @@ internal class HTTPWrapper
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns>The data returned by the request.</returns>
-    public string GetRequest(string strURL, bool setLastPage = true)
+    public HTTPResult<string> GetRequest(string strURL, bool setLastPage = true)
     {
         return GetRequest(strURL, string.Empty, setLastPage);
     }
@@ -1338,49 +1320,9 @@ internal class HTTPWrapper
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns>The data returned by the request.</returns>
-    public string GetRequest(string strURL, string strReferer, bool setLastPage = true)
+    public HTTPResult<string> GetRequest(string strURL, string strReferer, bool setLastPage = true)
     {
-        string strReturn;
-        GetRequest(out strReturn, strURL, strReferer, setLastPage);
-        return strReturn;
-    }
-
-
-    /// <summary>
-    /// Initiates a request to a specified URL using "GET" headers.
-    /// </summary>
-    /// <param name="strStore">Required. The string to store the data returned by the request.</param>
-    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
-    /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
-    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns>Whether the request was successful.</returns>
-    public bool GetRequest(out string strStore, string strURL, string strReferer, bool setLastPage = true)
-    {
-        Stream strmResult = null;
-
-        Thread GetThread = new Thread(() => Go(out strmResult, "GET", strURL, strReferer, setLastPage));
-
-        GetThread.Priority = _ThreadPriority;
-        GetThread.IsBackground = true;
-
-        // Start processes
-        GetThread.Start();
-        Stopwatch stopwatch = new Stopwatch();
-        stopwatch.Start();
-
-        while ((GetThread.IsAlive) && (stopwatch.ElapsedMilliseconds <= _Timeout))
-        {
-            if (_SleepDelay > 0) Thread.Sleep(_SleepDelay);
-        }
-
-        // Stop processes
-        stopwatch.Stop();
-
-        if (GetThread.IsAlive) GetThread.Abort();
-        _LastRequestTime = stopwatch.ElapsedMilliseconds;
-
-        strStore = EncodeAndRead(strmResult);
-        return strStore != _ErrorMessage;
+        return Request("GET", strURL, strReferer);
     }
 
 
@@ -1391,9 +1333,9 @@ internal class HTTPWrapper
     /// <param name="strPostData">Required. The data to send along with POST request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns></returns>
-    public string PostRequest(string strURL, string strPostData, bool setLastPage = true)
+    public HTTPResult<string> PostRequest(string strURL, string strPostData, bool setLastPage = true)
     {
-        return PostRequest(strURL, strPostData, string.Empty, "?", setLastPage);
+        return PostRequest(strURL, strPostData, string.Empty, setLastPage);
     }
 
 
@@ -1405,65 +1347,9 @@ internal class HTTPWrapper
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns></returns>
-    public string PostRequest(string strURL, string strPostData, string strReferer, bool setLastPage = true)
+    public HTTPResult<string> PostRequest(string strURL, string strPostData, string strReferer, bool setLastPage = true)
     {
-        return PostRequest(strURL, strPostData, strReferer, "?", setLastPage);
-    }
-
-
-    /// <summary>
-    /// Initiates a request to a specified URL and POST data using "POST" headers.
-    /// </summary>
-    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
-    /// <param name="strPostData">Required. The data to send along with POST request.</param>
-    /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
-    /// <param name="strPostSeparator">Required. The string to separate the URL from the POST data.</param>
-    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
-    public string PostRequest(string strURL, string strPostData, string strReferer, string strPostSeparator, bool setLastPage = true)
-    {
-        string strReturn;
-        PostRequest(out strReturn, strURL, strPostData, strReferer, strPostSeparator, setLastPage);
-        return strReturn;
-    }
-
-
-    /// <summary>
-    /// Initiates a request to a specified URL and POST data using "POST" headers.
-    /// </summary>
-    /// <param name="strStore">Required. The string to store the data returned by the request.</param>
-    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
-    /// <param name="strPostData">Required. The data to send along with POST request.</param>
-    /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
-    /// <param name="strPostSeparator">Required. The string to separate the URL from the POST data.</param>
-    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
-    public bool PostRequest(out string strStore, string strURL, string strPostData, string strReferer, string strPostSeparator, bool setLastPage = true)
-    {
-        Stream strmResult = null;
-
-        Thread PostThread = new Thread(() => Go(out strmResult, "POST", strURL, strReferer, setLastPage, strPostData, strPostSeparator));
-
-        PostThread.Priority = _ThreadPriority;
-        PostThread.IsBackground = true;
-
-        // Start processes
-        PostThread.Start();
-        Stopwatch stopwatch = new Stopwatch();
-        stopwatch.Start();
-
-        while ((PostThread.IsAlive) && (stopwatch.ElapsedMilliseconds <= _Timeout))
-        {
-            if (_SleepDelay > 0) Thread.Sleep(_SleepDelay);
-        }
-
-        // Stop processes
-        stopwatch.Stop();
-        if (PostThread.IsAlive) PostThread.Abort();
-        _LastRequestTime = stopwatch.ElapsedMilliseconds;
-
-        strStore = EncodeAndRead(strmResult);
-        return strStore != _ErrorMessage;
+        return Request("POST", strURL, strPostData, strReferer, setLastPage);
     }
 
 
@@ -1474,9 +1360,9 @@ internal class HTTPWrapper
     /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns></returns>
-    public string Request(string strMethod, string strURL, bool setLastPage = true)
+    public HTTPResult<string> Request(string strMethod, string strURL, bool setLastPage = true)
     {
-        return Request(strMethod, strURL, string.Empty, string.Empty, "?");
+        return Request(strMethod, strURL, string.Empty, string.Empty);
     }
 
 
@@ -1488,9 +1374,9 @@ internal class HTTPWrapper
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns></returns>
-    public string Request(string strMethod, string strURL, string strReferer, bool setLastPage = true)
+    public HTTPResult<string> Request(string strMethod, string strURL, string strReferer, bool setLastPage = true)
     {
-        return Request(strMethod, strURL, string.Empty, strReferer, "?", setLastPage);
+        return Request(strMethod, strURL, string.Empty, strReferer, setLastPage);
     }
 
 
@@ -1503,75 +1389,49 @@ internal class HTTPWrapper
     /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns></returns>
-    public string Request(string strMethod, string strURL, string strPostData, string strReferer, bool setLastPage = true)
+    public HTTPResult<string> Request(string strMethod, string strURL, string strPostData, string strReferer, bool setLastPage = true)
     {
-        return Request(strMethod, strURL, strPostData, strReferer, "?", setLastPage);
-    }
+        HTTPResult<string> result = null;
 
-
-    /// <summary>
-    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
-    /// </summary>
-    /// <param name="strMethod">Required. The header method to be used in the request.</param>
-    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
-    /// <param name="strPostData">Required. Data to be sent along with the URL.</param>
-    /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
-    /// <param name="strPostSeparator">Required. The string to separate the URL from the POST data.</param>
-    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
-    public string Request(string strMethod, string strURL, string strPostData, string strReferer, string strPostSeparator, bool setLastPage = true)
-    {
-        string strReturn;
-        Request(out strReturn, strMethod, strURL, strPostData, strReferer, strPostSeparator, setLastPage);
-        return strReturn;
-    }
-
-
-    /// <summary>
-    /// Initiates a custom request to a specified URL with a custom method and optional parameters.
-    /// </summary>
-    /// <param name="strStore">Required. The string to store the data returned by the request.</param>
-    /// <param name="strMethod">Required. The header method to be used in the request.</param>
-    /// <param name="strURL">Required. The Uniform Resource Locator to request.</param>
-    /// <param name="strPostData">Required. Data to be sent along with the URL.</param>
-    /// <param name="strReferer">Required. The URL to send as the last page visited.</param>
-    /// <param name="strPostSeparator">Required. The char or string used to separate the URL and the post data.</param>
-    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
-    public bool Request(out string strStore, string strMethod, string strURL, string strPostData, string strReferer, string strPostSeparator, bool setLastPage = true)
-    {
-        Stream strmResult = null;
-
-        Thread RequestThread = new Thread(() => Go(out strmResult, strMethod, strURL, strReferer, setLastPage, strPostData, strPostSeparator));
-
-        RequestThread.Priority = _ThreadPriority;
-        RequestThread.IsBackground = true;
-
-        // Start processes
-        RequestThread.Start();
-        Stopwatch stopwatch = new Stopwatch();
-        stopwatch.Start();
-
-        while ((RequestThread.IsAlive) && (stopwatch.ElapsedMilliseconds <= _Timeout))
+        Thread tGo = new Thread(() =>
         {
-            if (_SleepDelay > 0) Thread.Sleep(_SleepDelay);
-        }
-        stopwatch.Stop();
-        if (RequestThread.IsAlive) RequestThread.Abort();
-        _LastRequestTime = stopwatch.ElapsedMilliseconds;
+            // Start timer
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
 
-        strStore = EncodeAndRead(strmResult);
-        return strStore != _ErrorMessage;
+            string strResult = null;
+
+            bool success = GetString(out strResult, Go(strMethod, strURL, strReferer, setLastPage, strPostData));
+
+            stopwatch.Stop();
+            result = new HTTPResult<string>(strResult, success, stopwatch.ElapsedMilliseconds);
+        });
+
+        tGo.Priority = _ThreadPriority;
+        tGo.IsBackground = true;
+
+        // Start process
+        tGo.Start();
+
+        // Wait for process
+        tGo.Join(_Timeout);
+
+        // Stop process
+        if (tGo.IsAlive) tGo.Abort();
+
+        return result;
     }
 
 
-    private string EncodeAndRead(Stream strmRead)
+    private bool GetString(out string strResult, Stream strmRead)
     {
+        strResult = null;
+
         if (strmRead == null)
-            return _ErrorMessage;
+            return false;
 
 
-        StringBuilder strBuilder = new StringBuilder(_BufferSize);
+        StringBuilder strBuilder = new StringBuilder();
         int intRead;
         char[] buffer = new char[_BufferSize];
 
@@ -1591,13 +1451,14 @@ internal class HTTPWrapper
                 strmRead.Close();
 
             ExceptionHandler(ex);
-            return _ErrorMessage;
+            return false;
         }
 
         if (strmRead != null)
             strmRead.Close();
 
-        return strBuilder.ToString();
+        strResult = strBuilder.ToString();
+        return true;
     }
 
 
@@ -1609,58 +1470,54 @@ internal class HTTPWrapper
     /// <param name="strReferer">Optional. The URL to send as the last page visited.</param>
     /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
     /// <returns>Returns downloaded Bitmap if successful or null if unsuccessful.</returns>
-    public Bitmap DownloadImage(string strURL, int intTimeout = -1, string strReferer = "", bool setLastPage = false)
+    public HTTPResult<Bitmap> DownloadImage(string strURL, int intTimeout = -1, string strReferer = "", bool setLastPage = false)
     {
-        Bitmap bmpReturn = null;
-        DownloadImage(out bmpReturn, strURL, intTimeout, strReferer, setLastPage);
-        return bmpReturn;
-    }
+        HTTPResult<Bitmap> result = null;
 
-
-    /// <summary>
-    /// Initiates a request to the URL of an image and downloads it as a Bitmap.
-    /// </summary>
-    /// <param name="bmpStore">Required. The Bitmap to store the image returned by the request.</param>
-    /// <param name="strURL">Required. The Uniform Resource Locator of the image to request.</param>
-    /// <param name="intTimeout">Optional. The maximum time to wait for the request before terminating. If not set, the wrapper's timeout value will be used.</param>
-    /// <param name="strReferer">Optional. The URL to send as the last page visited.</param>
-    /// <param name="setLastPage">Optional. Determines whether to set strURL as LastPage property.</param>
-    /// <returns></returns>
-    public bool DownloadImage(out Bitmap bmpStore, string strURL, int intTimeout = -1, string strReferer = "", bool setLastPage = false)
-    {
-
-        Stream strmResult = null;
-        bmpStore = null;
-
-        Thread ImageThread = new Thread(() => Go(out strmResult, "PIC", strURL, strReferer, setLastPage));
-
-        ImageThread.Priority = _ThreadPriority;
-        ImageThread.IsBackground = true;
-
-        if (intTimeout < 0) intTimeout = _Timeout;
-
-        ImageThread.Start();
-        Stopwatch stopwatch = new Stopwatch();
-
-        while ((ImageThread.IsAlive) && (stopwatch.ElapsedMilliseconds <= intTimeout))
+        Thread tGo = new Thread(() =>
         {
-            if (_SleepDelay > 0) Thread.Sleep(_SleepDelay);
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            Bitmap bmpResult = null;
+            Stream strmResult = Go("PIC", strURL, strReferer, setLastPage);
+            try
+            {
+                bmpResult = new Bitmap(strmResult);
+            }
+            catch (Exception ex)
+            {
+                ExceptionHandler(ex);
+            }
+
+            stopwatch.Stop();
+
+            if (strmResult != null)
+                strmResult.Dispose();
+
+            result = new HTTPResult<Bitmap>(bmpResult, bmpResult != null, stopwatch.ElapsedMilliseconds);
+        });
+
+        tGo.Priority = _ThreadPriority;
+        tGo.IsBackground = true;
+
+        // Start process
+        tGo.Start();
+
+        // Wait for process
+        if (intTimeout >= 0)
+        {
+            tGo.Join(intTimeout);
         }
-        stopwatch.Stop();
-        if (ImageThread.IsAlive) ImageThread.Abort();
-        _LastRequestTime = stopwatch.ElapsedMilliseconds;
-
-        try
+        else
         {
-            bmpStore = new Bitmap(strmResult);
-        }
-        catch (Exception ex)
-        {
-            bmpStore = null;
-            ExceptionHandler(ex);
+            tGo.Join();
         }
 
-        return (bmpStore != null);
+        // Stop process
+        if (tGo.IsAlive) tGo.Abort();
+
+        return result;
     }
 
 
@@ -1931,17 +1788,8 @@ internal class HTTPWrapper
     }
 
 
-    private Stream Go(string strMethod, string strURL, string strReferer, bool setLastPage, string strData = "", string strSeparator = "?")
+    public HttpWebRequest SetupRequest(string strMethod, string strURL, string strReferer, bool setLastPage, string strData = null)
     {
-        Stream strmResult;
-        Go(out strmResult, strMethod, strURL, strReferer, setLastPage, strData, strSeparator);
-        return strmResult;
-    }
-
-
-    private void Go(out Stream strmStore, string strMethod, string strURL, string strReferer, bool setLastPage, string strData = "", string strSeparator = "?")
-    {
-        strmStore = null;
         HttpWebRequest request;
 
         try
@@ -1951,7 +1799,7 @@ internal class HTTPWrapper
         catch (Exception ex)
         {
             ExceptionHandler(ex);
-            return;
+            return null;
         }
 
         try
@@ -1961,7 +1809,7 @@ internal class HTTPWrapper
         catch (Exception ex)
         {
             ExceptionHandler(ex);
-            return;
+            return null;
         }
 
         request.CachePolicy = (_UseCaching ? new HttpRequestCachePolicy(HttpRequestCacheLevel.Revalidate) : new HttpRequestCachePolicy(HttpRequestCacheLevel.NoCacheNoStore));
@@ -2001,14 +1849,14 @@ internal class HTTPWrapper
 
         request.Referer = strReferer;
         request.CookieContainer = _Cookies;
-        request.UserAgent = (_UserAgent == "" ? conUserAgent : _UserAgent);
+        request.UserAgent = (_UserAgent == string.Empty ? conUserAgent : _UserAgent);
         request.Pipelined = (strMethod != "POST" && _UsePipelining);
 
 
         if (setLastPage) { _LastPage = strURL; }
 
 
-        if (!strData.Equals(string.Empty))
+        if (strData != null && !strData.Equals(string.Empty))
         {
             try
             {
@@ -2024,20 +1872,35 @@ internal class HTTPWrapper
             catch (Exception ex)
             {
                 ExceptionHandler(ex);
-                return;
+                return null;
             }
         }
 
+        return request;
+    }
+
+
+    private Stream Go(string strMethod, string strURL, string strReferer, bool setLastPage, string strData = null)
+    {
+       return Go(SetupRequest(strMethod, strURL, strReferer, setLastPage, strData));
+    }
+
+
+    private Stream Go(HttpWebRequest request)
+    {
+        Stream strmResponse = null;
+
+        if (request == null) return null;
+
         try
         {
-            strmStore = ((HttpWebResponse)request.GetResponse()).GetResponseStream();
+            strmResponse = ((HttpWebResponse)request.GetResponse()).GetResponseStream();
         }
         catch (Exception ex)
         {
-            strmStore = null;
             ExceptionHandler(ex);
-            return;
         }
+        return strmResponse;
     }
 
 
@@ -2073,4 +1936,50 @@ internal class HTTPWrapper
     }
 
     #endregion
+
+}
+
+
+internal class HTTPResult<T>
+{
+
+    #region Members
+
+    protected T _Result;
+    protected bool _Success;
+    protected long _RequestTime;
+
+    #endregion
+
+
+    public HTTPResult(T result, bool success, long intRequestTime)
+    {
+        _Result = result;
+        _Success = success;
+        _RequestTime = intRequestTime;
+    }
+
+    public T Result
+    {
+        get { return _Result; }
+        set { _Result = value; }
+    }
+    
+    public bool Success
+    {
+        get { return _Success; }
+    }
+
+    public long RequestTime
+    {
+        get { return _RequestTime; }
+    }
+
+    public override string ToString()
+    {
+        if (_Result is string)
+            return Result.ToString();
+        else
+            return base.ToString();
+    }
 }
