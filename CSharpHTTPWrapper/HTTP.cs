@@ -1854,7 +1854,7 @@ internal class HTTP
                 cancel.ThrowIfCancellationRequested();
             }
 
-            strmResponse = (request.EndGetResponse(asyncResult)).GetResponseStream();
+            strmResponse = ((HttpWebResponse)request.EndGetResponse(asyncResult)).GetResponseStream();
         }
         catch (OperationCanceledException ex)
         {
